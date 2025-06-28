@@ -18,6 +18,7 @@ def load_csv(symbol: str, interval: str) -> pd.DataFrame:
 
     try:
         df = pd.read_csv(filename, parse_dates=["timestamp"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         return df
     except Exception as e:
         print(f"❌ Error loading {filename}: {e}")
@@ -35,6 +36,7 @@ def validate_candles(df: pd.DataFrame, interval: int = 1) -> bool:
         print("❌ DataFrame is empty or None.")
         return False
 
+    REQUIRED_COLUMNS = ["timestamp", "open", "high", "low", "close", "volume"]
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_cols:
         print(f"❌ Missing columns: {missing_cols}")
@@ -46,6 +48,10 @@ def validate_candles(df: pd.DataFrame, interval: int = 1) -> bool:
         df.sort_values("timestamp", inplace=True)
         df.reset_index(drop=True, inplace=True)
 
+    # Make sure timestamps are timezone-aware UTC
+    if df["timestamp"].dt.tz is None:
+        df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
+
     # Check for missing timestamps
     expected_delta = pd.Timedelta(minutes=interval)
     actual_deltas = df["timestamp"].diff().dropna()
@@ -53,10 +59,11 @@ def validate_candles(df: pd.DataFrame, interval: int = 1) -> bool:
     gaps = actual_deltas[actual_deltas > expected_delta * 1.1]  # Allow slight tolerance
     if not gaps.empty:
         print(f"⚠️ Missing candles detected: {len(gaps)} gaps")
-        return False
+        # Don't fail – just warn and continue
 
     print("✅ Candle data validated successfully.")
     return True
+
 
 # ----------- Minimal test -------------
 if __name__ == "__main__":

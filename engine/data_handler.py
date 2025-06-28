@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import time
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 BYBIT_ENDPOINT = "https://api.bybit.com/v5/market/kline"
 
@@ -13,11 +13,15 @@ def fetch_bybit_candles(symbol: str, interval: str, start: datetime, end: dateti
 
     :param symbol: e.g. "BTCUSDT"
     :param interval: e.g. "1", "5", "15", "60", "240", "D"
-    :param start: datetime UTC
-    :param end: datetime UTC
-    :param max_retries: retry attempts per request
+    :param start: datetime (must be timezone-aware UTC)
+    :param end: datetime (must be timezone-aware UTC)
     :return: DataFrame with timestamp, open, high, low, close, volume
     """
+
+    # ✅ Validate timezone awareness
+    if start.tzinfo is None or end.tzinfo is None:
+        raise ValueError("Start and end datetimes must be timezone-aware (UTC).")
+
     all_candles = []
     category = "linear"
     start_ms = int(start.timestamp() * 1000)
@@ -71,7 +75,7 @@ def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
     Calls fetch_bybit_candles repeatedly if needed to cover full range.
     """
     try:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(days=days)
 
         all_dfs = []
@@ -89,7 +93,10 @@ def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
 
             all_dfs.append(df)
             last_timestamp = df["timestamp"].iloc[-1]
-            fetch_start = last_timestamp + timedelta(minutes=int(interval))  # next batch start
+            if last_timestamp.tzinfo is None:
+                last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
+
+            fetch_start = last_timestamp + timedelta(minutes=int(interval))
 
             # Safety break in case timestamps don’t advance
             if fetch_start <= last_timestamp:
@@ -117,8 +124,8 @@ def save_candles_to_csv(df: pd.DataFrame, symbol: str, interval: str):
 if __name__ == "__main__":
     symbol = "BTCUSDT"
     interval = "1"  # 1-minute
-    start = datetime.utcnow() - timedelta(days=1)
-    end = datetime.utcnow()
+    start = datetime.now(timezone.utc) - timedelta(days=1)
+    end = datetime.now(timezone.utc)
 
     print(f"🔍 Fetching {symbol} {interval}m candles from {start} to {end}")
     df = fetch_bybit_candles(symbol, interval, start, end)

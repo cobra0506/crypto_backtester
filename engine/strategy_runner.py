@@ -6,8 +6,9 @@ from engine.data_loader import load_csv, validate_candles
 from engine.data_handler import fetch_and_save_candles  # new: import downloader function
 from engine.strategies.example_strategy import ExampleStrategy
 import config
+import pandas as pd
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class PortfolioManager:
     def __init__(self, starting_balance: float, fee_pct: float, slippage_pct: float):
@@ -65,7 +66,7 @@ def ensure_data(symbol: str, interval: str) -> bool:
         return success
 
     # Check if data covers HISTORICAL_DAYS
-    required_start = datetime.utcnow() - timedelta(days=config.HISTORICAL_DAYS)
+    required_start = datetime.now(timezone.utc) - timedelta(days=config.HISTORICAL_DAYS)
     first_timestamp = pd.to_datetime(df["timestamp"].iloc[0], utc=True)
 
     if first_timestamp > required_start:
