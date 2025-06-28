@@ -25,12 +25,12 @@ This file tracks development stages and tests. Each stage builds on the last. On
 
 ## 🧩 Stage 2 – Validate Local Data
 
-- [ ] `data_handler.is_data_valid(...)`
-- [ ] Detect missing/incomplete/corrupt files
+- [x] `data_handler.is_data_valid(...)`
+- [x] Detect missing/incomplete/corrupt files
 
 ✅ **Test**:
-- [ ] Rename CSV → triggers re-download
-- [ ] Truncated file → triggers re-download
+- [x] Rename CSV → triggers re-download
+- [x] Truncated file → triggers re-download
 
 ---
 
