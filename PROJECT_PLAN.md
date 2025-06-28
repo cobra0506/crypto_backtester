@@ -13,13 +13,13 @@ This file tracks development stages and tests. Each stage builds on the last. On
 
 ## 🧩 Stage 1 – Fetch Candle Data
 
-- [ ] `data_handler.fetch_data(symbol, timeframe, start, end)`
-- [ ] Save CSV to `/data/SYMBOL_TIMEFRAME.csv`
-- [ ] Log download time, row count
+- [x] `data_handler.fetch_data(symbol, timeframe, start, end)`
+- [x] Save CSV to `/data/SYMBOL_TIMEFRAME.csv`
+- [x] Log download time, row count
 
 ✅ **Test**:
-- [ ] Download BTCUSDT 1h from 2024-01-01 to 2024-01-10
-- [ ] CSV file is saved and contains correct range
+- [x] Download BTCUSDT 1h from 2024-01-01 to 2024-01-10
+- [x] CSV file is saved and contains correct range
 
 ---
 
