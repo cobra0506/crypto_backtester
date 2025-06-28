@@ -1,7 +1,7 @@
 # config.py
 
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
-INTERVAL = "1"  # 1-minute interval
+SYMBOLS = ["BTCUSDT",  "ETHUSDT",  "BNBUSDT",  "ADAUSDT",  "SOLUSDT",  "DOTUSDT",  "DOGEUSDT"]
+INTERVAL = ["1", "5", "15", "30", "60", "240"]  # 1-minute interval
 
 START_BALANCE = 10000.0
 

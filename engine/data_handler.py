@@ -2,31 +2,22 @@ import requests
 import pandas as pd
 import os
 import time
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 BYBIT_ENDPOINT = "https://api.bybit.com/v5/market/kline"
 
+def interval_to_timedelta(interval: str) -> timedelta:
+    # Only supports minute intervals for now
+    return timedelta(minutes=int(interval))
+
 def fetch_bybit_candles(symbol: str, interval: str, start: datetime, end: datetime, max_retries=5) -> pd.DataFrame:
-    """
-    Fetch historical candles from Bybit v5 API.
-
-    :param symbol: e.g. "BTCUSDT"
-    :param interval: e.g. "1", "5", "15", "60", "240", "D"
-    :param start: datetime (must be timezone-aware UTC)
-    :param end: datetime (must be timezone-aware UTC)
-    :return: DataFrame with timestamp, open, high, low, close, volume
-    """
-
-    # ✅ Validate timezone awareness
     if start.tzinfo is None or end.tzinfo is None:
-        raise ValueError("Start and end datetimes must be timezone-aware (UTC).")
+        raise ValueError("Start and end must be timezone-aware (UTC).")
 
-    all_candles = []
     category = "linear"
     start_ms = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
-    limit = 1000  # max allowed
+    limit = 1000  # max candles per request
 
     for attempt in range(max_retries):
         try:
@@ -63,17 +54,13 @@ def fetch_bybit_candles(symbol: str, interval: str, start: datetime, end: dateti
             return df.sort_values("timestamp").reset_index(drop=True)
 
         except Exception as e:
-            print(f"⚠️ Error fetching: {e} (attempt {attempt + 1}/{max_retries})")
+            print(f"⚠️ Error fetching {symbol} {interval}m: {e} (attempt {attempt + 1}/{max_retries})")
             time.sleep(1)
 
-    print("❌ Failed to fetch candles after retries.")
+    print(f"❌ Failed fetching {symbol} {interval}m candles after retries.")
     return pd.DataFrame()
 
 def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
-    """Fetch 'days' days of candles for symbol/interval and save CSV.
-
-    Calls fetch_bybit_candles repeatedly if needed to cover full range.
-    """
     try:
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(days=days)
@@ -82,25 +69,23 @@ def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
         fetch_start = start_time
 
         while fetch_start < end_time:
-            fetch_end = fetch_start + timedelta(minutes=1000 * int(interval))  # 1000 candles max per request
+            chunk = interval_to_timedelta(interval) * 999
+            fetch_end = fetch_start + chunk
             if fetch_end > end_time:
                 fetch_end = end_time
 
             df = fetch_bybit_candles(symbol, interval, fetch_start, fetch_end)
             if df.empty:
-                print(f"❌ No data returned for {symbol} {interval}m from {fetch_start} to {fetch_end}")
+                print(f"❌ No data for {symbol} {interval}m from {fetch_start} to {fetch_end}")
                 break
 
             all_dfs.append(df)
-            last_timestamp = df["timestamp"].iloc[-1]
-            if last_timestamp.tzinfo is None:
-                last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
 
-            fetch_start = last_timestamp + timedelta(minutes=int(interval))
+            last_ts = df["timestamp"].iloc[-1]
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
 
-            # Safety break in case timestamps don’t advance
-            if fetch_start <= last_timestamp:
-                break
+            fetch_start = last_ts + interval_to_timedelta(interval)
 
         if not all_dfs:
             return False
@@ -113,25 +98,22 @@ def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
         print(f"❌ Exception in fetch_and_save_candles: {e}")
         return False
 
-
 def save_candles_to_csv(df: pd.DataFrame, symbol: str, interval: str):
     os.makedirs("data", exist_ok=True)
     filename = f"data/{symbol}_{interval}m.csv"
     df.to_csv(filename, index=False)
     print(f"✅ Saved {len(df)} rows to {filename}")
 
-# ---------- Test Run ----------
 if __name__ == "__main__":
-    symbol = "BTCUSDT"
-    interval = "1"  # 1-minute
-    start = datetime.now(timezone.utc) - timedelta(days=1)
-    end = datetime.now(timezone.utc)
+    SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+    INTERVALS = ["1", "5", "15", "30", "60", "240"]
+    HISTORICAL_DAYS = 30
 
-    print(f"🔍 Fetching {symbol} {interval}m candles from {start} to {end}")
-    df = fetch_bybit_candles(symbol, interval, start, end)
-
-    if df.empty:
-        print("❌ No data fetched.")
-    else:
-        print(f"✅ Fetched {len(df)} candles.")
-        save_candles_to_csv(df, symbol, interval)
+    for symbol in SYMBOLS:
+        for interval in INTERVALS:
+            print(f"⬇️ Downloading {symbol} {interval}m candles for {HISTORICAL_DAYS} days...")
+            success = fetch_and_save_candles(symbol, interval, HISTORICAL_DAYS)
+            if success:
+                print(f"✅ Finished {symbol} {interval}m")
+            else:
+                print(f"❌ Failed {symbol} {interval}m")

@@ -24,12 +24,12 @@ def load_csv(symbol: str, interval: str) -> pd.DataFrame:
         print(f"❌ Error loading {filename}: {e}")
         return None
 
-def validate_candles(df: pd.DataFrame, interval: int = 1) -> bool:
+def validate_candles(df: pd.DataFrame, interval: int) -> bool:
     """
     Validates the structure and consistency of candle data.
 
     :param df: Pandas DataFrame
-    :param interval: Expected interval in minutes
+    :param interval: Expected interval in minutes (e.g. 1, 5, 15)
     :return: True if valid, False otherwise
     """
     if df is None or df.empty:
@@ -52,17 +52,22 @@ def validate_candles(df: pd.DataFrame, interval: int = 1) -> bool:
     if df["timestamp"].dt.tz is None:
         df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
 
-    # Check for missing timestamps
+    # Check for missing timestamps based on the interval
     expected_delta = pd.Timedelta(minutes=interval)
     actual_deltas = df["timestamp"].diff().dropna()
 
-    gaps = actual_deltas[actual_deltas > expected_delta * 1.1]  # Allow slight tolerance
+    tolerance = expected_delta * 1.1  # 10% tolerance for slight timing inaccuracies
+    gaps = actual_deltas[actual_deltas > tolerance]
+
     if not gaps.empty:
         print(f"⚠️ Missing candles detected: {len(gaps)} gaps")
-        # Don't fail – just warn and continue
+        # Optionally, print gap details here
+        # for idx in gaps.index:
+        #     print(f"Gap between {df['timestamp'].iloc[idx-1]} and {df['timestamp'].iloc[idx]} (diff={actual_deltas.loc[idx]})")
 
     print("✅ Candle data validated successfully.")
     return True
+
 
 
 # ----------- Minimal test -------------
