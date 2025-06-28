@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import os
 import time
+import asyncio
 from datetime import datetime, timedelta
 
 BYBIT_ENDPOINT = "https://api.bybit.com/v5/market/kline"
@@ -63,6 +64,48 @@ def fetch_bybit_candles(symbol: str, interval: str, start: datetime, end: dateti
 
     print("❌ Failed to fetch candles after retries.")
     return pd.DataFrame()
+
+def fetch_and_save_candles(symbol: str, interval: str, days: int) -> bool:
+    """Fetch 'days' days of candles for symbol/interval and save CSV.
+
+    Calls fetch_bybit_candles repeatedly if needed to cover full range.
+    """
+    try:
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(days=days)
+
+        all_dfs = []
+        fetch_start = start_time
+
+        while fetch_start < end_time:
+            fetch_end = fetch_start + timedelta(minutes=1000 * int(interval))  # 1000 candles max per request
+            if fetch_end > end_time:
+                fetch_end = end_time
+
+            df = fetch_bybit_candles(symbol, interval, fetch_start, fetch_end)
+            if df.empty:
+                print(f"❌ No data returned for {symbol} {interval}m from {fetch_start} to {fetch_end}")
+                break
+
+            all_dfs.append(df)
+            last_timestamp = df["timestamp"].iloc[-1]
+            fetch_start = last_timestamp + timedelta(minutes=int(interval))  # next batch start
+
+            # Safety break in case timestamps don’t advance
+            if fetch_start <= last_timestamp:
+                break
+
+        if not all_dfs:
+            return False
+
+        full_df = pd.concat(all_dfs).drop_duplicates("timestamp").reset_index(drop=True)
+        save_candles_to_csv(full_df, symbol, interval)
+        return True
+
+    except Exception as e:
+        print(f"❌ Exception in fetch_and_save_candles: {e}")
+        return False
+
 
 def save_candles_to_csv(df: pd.DataFrame, symbol: str, interval: str):
     os.makedirs("data", exist_ok=True)
