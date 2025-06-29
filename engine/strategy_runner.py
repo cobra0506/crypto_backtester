@@ -5,44 +5,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from engine.data_loader import load_csv, validate_candles
 from engine.data_handler import fetch_and_save_candles
 from engine.strategies.example_strategy import ExampleStrategy
+from engine.trade_engine import TradeEngine  # <-- NEW
 import config
 import pandas as pd
 import time
 from datetime import datetime, timedelta, timezone
 
-class PortfolioManager:
-    def __init__(self, starting_balance: float, fee_pct: float, slippage_pct: float):
-        self.balance = starting_balance
-        self.fee_pct = fee_pct
-        self.slippage_pct = slippage_pct
-        self.trade_log = []
-
-    def process_trade(self, trade):
-        # Apply slippage
-        entry_price = trade["entry_price"] * (1 + self.slippage_pct)
-        exit_price = trade["exit_price"] * (1 - self.slippage_pct)
-
-        trade_size = 1  # simplify, can be improved
-
-        gross_pnl = (exit_price - entry_price) * trade_size
-        fee = (entry_price + exit_price) * trade_size * self.fee_pct
-        net_pnl = gross_pnl - fee
-
-        self.balance += net_pnl
-
-        trade_record = trade.copy()
-        trade_record.update({
-            "net_pnl": net_pnl,
-            "fee": fee,
-            "balance_after": self.balance
-        })
-        self.trade_log.append(trade_record)
-
-    def summary(self):
-        return {
-            "final_balance": self.balance,
-            "total_trades": len(self.trade_log)
-        }
 
 def ensure_data(symbol: str, interval: str) -> bool:
     filename = f"data/{symbol}_{interval}m.csv"
@@ -76,38 +44,38 @@ def ensure_data(symbol: str, interval: str) -> bool:
 
     return True
 
-def run_strategy_for_symbol_interval(symbol: str, interval: str, config_params: dict):
+
+def run_strategy_for_symbol_interval(symbol: str, interval: str, trade_engine: TradeEngine, config_params: dict):
     if not ensure_data(symbol, interval):
         print(f"❌ Unable to get valid data for {symbol} interval {interval}m, skipping.")
-        return []
+        return
 
     df = load_csv(symbol, interval)
-    if not validate_candles(df, int(interval)):
+    if not validate_candles(df, interval=int(interval)):
         print(f"❌ Invalid data for {symbol} interval {interval}m, skipping.")
-        return []
+        return
 
     strategy = ExampleStrategy(symbol, interval, df, config_params)
     strategy.run()
-    return strategy.get_results()
+
+    for signal in strategy.get_results():
+        trade_engine.process_signal(signal)
+
 
 if __name__ == "__main__":
-    portfolio = PortfolioManager(
+    trade_engine = TradeEngine(
         starting_balance=config.START_BALANCE,
         fee_pct=config.FEE_PCT,
         slippage_pct=config.SLIPPAGE_PCT,
+        risk_per_trade=config.RISK_PCT
     )
 
     for symbol in config.SYMBOLS:
         for interval in config.INTERVAL:
             print(f"▶ Running strategy for {symbol} interval {interval}m")
-            trades = run_strategy_for_symbol_interval(symbol, interval, {})
-            print(f"→ {len(trades)} trades from {symbol} interval {interval}m")
+            run_strategy_for_symbol_interval(symbol, interval, trade_engine, {})
 
-            # Process all trades in the shared portfolio
-            for trade in trades:
-                portfolio.process_trade(trade)
-
-    summary = portfolio.summary()
+    summary = trade_engine.get_summary()
     print(f"\n🧾 Portfolio summary:")
     print(f"Starting balance: {config.START_BALANCE}")
     print(f"Final balance: {summary['final_balance']:.2f}")
