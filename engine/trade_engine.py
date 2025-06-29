@@ -64,67 +64,67 @@ class TradeEngine:
         action = signal.get("action")
         price = signal.get("price") or signal.get("entry_price")
 
-        if action is None:
-            raise ValueError("Signal must include 'action' key")
-
-        # Handle price update action
-        if action == "price_update":
-            if symbol is None or price is None:
-                # Missing required info, ignore
-                return
-            pos = self.positions.get(symbol)
-            if pos is None:
-                # No open position to update
-                return
-
-            # Check if position should exit
-            should_exit, exit_price = pos.should_exit(price)
-            if should_exit:
-                self._close_position(symbol, timestamp, exit_price)
+        if not symbol or not timestamp or not action:
+            print(f"⚠️ Ignoring invalid signal missing symbol/timestamp/action: {signal}")
             return
 
-        # Handle closing positions manually
+        if action == "price_update":
+            if symbol in self.positions:
+                pos = self.positions[symbol]
+                if pos.trailing:
+                    pos.update_trailing_tp(price)
+                exit_flag, exit_price = pos.should_exit(price)
+                if exit_flag:
+                    self._close_position(symbol, timestamp, exit_price)
+            return
+
         if action == "close_long":
             if symbol in self.positions and self.positions[symbol].direction == "LONG":
                 self._close_position(symbol, timestamp, price)
-            return
-        elif action == "close_short":
-            if symbol in self.positions and self.positions[symbol].direction == "SHORT":
-                self._close_position(symbol, timestamp, price)
+            else:
+                print(f"⚠️ No LONG position to close for {symbol}")
             return
 
-        # Handle opening positions
+        if action == "close_short":
+            if symbol in self.positions and self.positions[symbol].direction == "SHORT":
+                self._close_position(symbol, timestamp, price)
+            else:
+                print(f"⚠️ No SHORT position to close for {symbol}")
+            return
+
         if action == "open_long":
             if symbol in self.positions:
-                return  # Already in position, ignore
+                print(f"⚠️ Already have position open for {symbol}, ignoring open_long")
+                return
             direction = "LONG"
         elif action == "open_short":
             if symbol in self.positions:
+                print(f"⚠️ Already have position open for {symbol}, ignoring open_short")
                 return
             direction = "SHORT"
         else:
-            raise ValueError(f"Unknown action: {action}")
+            print(f"⚠️ Unknown action '{action}', ignoring")
+            return
 
         if price is None:
-            raise ValueError("Open position signal must include price")
+            print(f"⚠️ Missing price for open position signal: {signal}")
+            return
 
-        # Position sizing
+        entry_price = price
         risk_amount = self.balance * self.risk_per_trade
-        qty = risk_amount / price
+        qty = risk_amount / entry_price
 
         pos = Position(
             symbol=symbol,
             direction=direction,
             entry_time=timestamp,
-            entry_price=price,
+            entry_price=entry_price,
             qty=qty,
             tp=signal.get("tp") or signal.get("take_profit"),
             sl=signal.get("sl") or signal.get("stop_loss"),
             trailing=signal.get("trailing")
         )
         self.positions[symbol] = pos
-
-
 
     def _close_position(self, symbol, exit_time, exit_price):
         pos = self.positions[symbol]
@@ -162,6 +162,7 @@ class TradeEngine:
     def close_all(self, final_time, final_price):
         for symbol in list(self.positions.keys()):
             self._close_position(symbol, final_time, final_price)
+
 
     def get_trades(self):
         return self.trades

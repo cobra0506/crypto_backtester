@@ -58,9 +58,21 @@ def run_strategy_for_symbol_interval(symbol: str, interval: str, trade_engine: T
     strategy = ExampleStrategy(symbol, interval, df, config_params)
     strategy.run()
 
-    for signal in strategy.get_results():
+    signals = strategy.get_results()
+
+    # Process open/close signals first (usually timestamps match candle times)
+    for signal in signals:
         trade_engine.process_signal(signal)
 
+    # Feed price updates per candle close for auto-exit triggers
+    for _, row in df.iterrows():
+        price_update_signal = {
+            "timestamp": pd.to_datetime(row["timestamp"]),
+            "symbol": symbol,
+            "action": "price_update",
+            "price": row["close"],
+        }
+        trade_engine.process_signal(price_update_signal)
 
 if __name__ == "__main__":
     trade_engine = TradeEngine(
