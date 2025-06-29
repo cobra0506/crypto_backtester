@@ -39,7 +39,7 @@ def save_results(results, filename="optimizer_results.csv"):
 def main():
     StrategyClass = load_class_from_string(config.STRATEGY_CLASS)
 
-    symbol = config.SYMBOLS[0]  # Use first symbol or loop all as needed
+    symbol = config.SYMBOLS[0]
     interval = config.INTERVAL[0]
 
     print(f"Loading data for {symbol} interval {interval}m")
@@ -87,8 +87,14 @@ def main():
     for r in results[:10]:
         print(r)
 
+    # Save all results CSV
     save_results(results)
 
+    # ===== Add exports here =====
+    from export_utils import export_optimizer_top_configs
+    export_optimizer_top_configs(results, "top_optimizer_configs.csv", top_n=10)
+
+    print("Optimization complete, results exported.")
 
 if __name__ == "__main__":
     main()
