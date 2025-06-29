@@ -8,6 +8,9 @@ START_BALANCE = 10000.0
 # Bybit download config
 HISTORICAL_DAYS = 30  # How many days to fetch if missing/incomplete
 
+# Example: 'engine.strategies.example_strategy.ExampleStrategy'
+STRATEGY_CLASS = "engine.strategies.example_strategy.ExampleStrategy"
+
 # Fees and slippage
 FEE_PCT = 0.001  # 0.1%
 SLIPPAGE_PCT = 0.0005  # 0.05%

@@ -1,9 +1,12 @@
-import os
 import csv
 import pandas as pd
-from datetime import datetime, timedelta, timezone
-import config
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))  # adds crypto_backtester root to path
+
+from engine import optimizer
 from utils import load_class_from_string
+import config
 from engine.data_loader import load_csv, validate_candles
 
 def split_train_test(df, train_days=20, test_days=10):
