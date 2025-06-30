@@ -1,4 +1,6 @@
 import pandas as pd
+import os
+import importlib.util
 
 class Position:
     def __init__(self, symbol, direction, entry_time, entry_price, qty, tp=None, sl=None, trailing=None):
@@ -59,58 +61,28 @@ class TradeEngine:
         self.starting_balance = starting_balance
 
     def process_signal(self, signal):
-        symbol = signal.get("symbol")
-        timestamp = signal.get("timestamp")
-        action = signal.get("action")
-        price = signal.get("price") or signal.get("entry_price")
+        timestamp = signal["timestamp"]
+        symbol = signal["symbol"]
 
-        if not symbol or not timestamp or not action:
-            print(f"⚠️ Ignoring invalid signal missing symbol/timestamp/action: {signal}")
-            return
-
-        if action == "price_update":
-            if symbol in self.positions:
-                pos = self.positions[symbol]
-                if pos.trailing:
-                    pos.update_trailing_tp(price)
-                exit_flag, exit_price = pos.should_exit(price)
-                if exit_flag:
-                    self._close_position(symbol, timestamp, exit_price)
-            return
-
-        if action == "close_long":
-            if symbol in self.positions and self.positions[symbol].direction == "LONG":
-                self._close_position(symbol, timestamp, price)
-            else:
-                print(f"⚠️ No LONG position to close for {symbol}")
-            return
-
-        if action == "close_short":
-            if symbol in self.positions and self.positions[symbol].direction == "SHORT":
-                self._close_position(symbol, timestamp, price)
-            else:
-                print(f"⚠️ No SHORT position to close for {symbol}")
-            return
-
-        if action == "open_long":
-            if symbol in self.positions:
-                print(f"⚠️ Already have position open for {symbol}, ignoring open_long")
-                return
-            direction = "LONG"
-        elif action == "open_short":
-            if symbol in self.positions:
-                print(f"⚠️ Already have position open for {symbol}, ignoring open_short")
-                return
-            direction = "SHORT"
-        else:
-            print(f"⚠️ Unknown action '{action}', ignoring")
-            return
-
+        price = signal.get("price") or signal.get("entry_price") or signal.get("exit_price")
         if price is None:
-            print(f"⚠️ Missing price for open position signal: {signal}")
+            raise ValueError("Signal must include 'price', 'entry_price' or 'exit_price'")
+
+        if signal.get("exit", False):
+            if symbol in self.positions:
+                self._close_position(symbol, timestamp, price)
             return
 
-        entry_price = price
+        if symbol in self.positions:
+            # Check auto-close conditions
+            pos = self.positions[symbol]
+            exit_flag, exit_price = pos.should_exit(price)
+            if exit_flag:
+                self._close_position(symbol, timestamp, exit_price)
+            return
+
+        direction = signal["direction"]
+        entry_price = signal.get("entry_price", price)
         risk_amount = self.balance * self.risk_per_trade
         qty = risk_amount / entry_price
 
@@ -120,8 +92,8 @@ class TradeEngine:
             entry_time=timestamp,
             entry_price=entry_price,
             qty=qty,
-            tp=signal.get("tp") or signal.get("take_profit"),
-            sl=signal.get("sl") or signal.get("stop_loss"),
+            tp=signal.get("take_profit"),
+            sl=signal.get("stop_loss"),
             trailing=signal.get("trailing")
         )
         self.positions[symbol] = pos
@@ -163,7 +135,6 @@ class TradeEngine:
         for symbol in list(self.positions.keys()):
             self._close_position(symbol, final_time, final_price)
 
-
     def get_trades(self):
         return self.trades
 
@@ -172,3 +143,22 @@ class TradeEngine:
             "final_balance": self.balance,
             "total_trades": len(self.trades)
         }
+
+
+def discover_strategy_classes(directory):
+    strategy_classes = []
+    for filename in os.listdir(directory):
+        if filename.endswith(".py") and not filename.startswith("__"):
+            module_name = filename[:-3]
+            filepath = os.path.join(directory, filename)
+            spec = importlib.util.spec_from_file_location(module_name, filepath)
+            module = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(module)
+                for attr_name in dir(module):
+                    obj = getattr(module, attr_name)
+                    if isinstance(obj, type) and hasattr(obj, "generate_param_combinations"):
+                        strategy_classes.append((module_name, attr_name))
+            except Exception as e:
+                print(f"Error loading {filename}: {e}")
+    return strategy_classes

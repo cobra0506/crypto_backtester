@@ -1,7 +1,9 @@
 import os
+import sys
 import csv
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # Add project root to sys.path
 import config
 from utils import load_class_from_string
 from engine.data_loader import load_csv, validate_candles
@@ -91,7 +93,7 @@ def main():
     save_results(results)
 
     # ===== Add exports here =====
-    from export_utils import export_optimizer_top_configs
+    from engine.export_utils import export_optimizer_top_configs
     export_optimizer_top_configs(results, "top_optimizer_configs.csv", top_n=10)
 
     print("Optimization complete, results exported.")
