@@ -1,3 +1,4 @@
+#startegy_runner.py
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -58,21 +59,30 @@ def run_strategy_for_symbol_interval(symbol: str, interval: str, trade_engine: T
     strategy = ExampleStrategy(symbol, interval, df, config_params)
     strategy.run()
 
-    signals = strategy.get_results()
+    # Strategy now produces entry/exit signals in strategy.signals
+    strategy_signals = strategy.signals  # Make sure `run()` populates this list
 
-    # Process open/close signals first (usually timestamps match candle times)
-    for signal in signals:
-        trade_engine.process_signal(signal)
+    # Create price update signals per candle
+    price_updates = [{
+        "timestamp": pd.to_datetime(row["timestamp"]),
+        "symbol": symbol,
+        "action": "price_update",
+        "price": row["close"],
+    } for _, row in df.iterrows()]
 
-    # Feed price updates per candle close for auto-exit triggers
-    for _, row in df.iterrows():
-        price_update_signal = {
-            "timestamp": pd.to_datetime(row["timestamp"]),
-            "symbol": symbol,
-            "action": "price_update",
-            "price": row["close"],
-        }
-        trade_engine.process_signal(price_update_signal)
+    # Combine all signals and price updates
+    all_events = strategy_signals + price_updates
+
+    # Sort by timestamp
+    all_events.sort(key=lambda x: x["timestamp"])
+
+    # Feed all events to the TradeEngine in chronological order
+    for event in all_events:
+        try:
+            trade_engine.process_signal(event)
+        except Exception as e:
+            print(f"⚠️ Error processing event: {event}\n{e}")
+
 
 if __name__ == "__main__":
     trade_engine = TradeEngine(
@@ -92,3 +102,4 @@ if __name__ == "__main__":
     print(f"Starting balance: {config.START_BALANCE}")
     print(f"Final balance: {summary['final_balance']:.2f}")
     print(f"Total trades: {summary['total_trades']}")
+    print(f"Max drawdown: {summary['max_drawdown_pct']:.2f}%")

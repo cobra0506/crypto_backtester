@@ -2,7 +2,7 @@
 
 ---
 
-## ✅ Stage 1 – Download Historical Data
+## ⏳ Stage 1 – Download Historical Data
 - [x] Fetch 1m OHLCV candles via Bybit v5 API
 - [x] Save per symbol/interval as CSV
 - [x] Automatic re-download if file missing/incomplete
@@ -14,7 +14,7 @@
 
 ---
 
-## ✅ Stage 2 – Validate Local Data
+## ⏳ Stage 2 – Validate Local Data
 - [x] Load CSV using Pandas
 - [x] Check required columns + sort timestamps
 - [x] Detect gaps (based on interval)
@@ -26,7 +26,7 @@
 
 ---
 
-## ✅ Stage 3.1 – Strategy Interface + Runner
+## ⏳ Stage 3.1 – Strategy Interface + Runner
 - [x] Create `BaseStrategy` class with `run()` and `get_results()`
 - [x] Example strategy runs on 1 symbol
 - [x] Results are printed (entry, exit, pnl)
@@ -38,52 +38,52 @@
 ---
 
 ## ⏳ Stage 3.2 – Multi-Symbol Execution + Balance Logic
-- [ ] Run strategy across multiple symbols (same timeframe)
-- [ ] Use shared balance across all symbols
-- [ ] Each trade adjusts account balance
-- [ ] Slippage + fees applied to each trade
+- [x] Run strategy across multiple symbols (same timeframe)
+- [x] Use shared balance across all symbols
+- [x] Each trade adjusts account balance
+- [x] Slippage + fees applied to each trade
 
 ✅ **Test**
-- [ ] Run across 2–3 symbols
-- [ ] Print trades and final balance
+- [X] Run across 2–3 symbols
+- [x] Print trades and final balance
 
 ---
 
 ## ⏳ Stage 4 – Trade Engine + Realism Layer
-- [ ] Add trade execution logic with:
-    - [ ] Entry/exit logic
-    - [ ] TP/SL
-    - [ ] Order size from risk %
-    - [ ] Fees/slippage config
-- [ ] Track equity, drawdown, position sizes
+- [x] Add trade execution logic with:
+    - [x] Entry/exit logic
+    - [x] TP/SL
+    - [x] Order size from risk %
+    - [x] Fees/slippage config
+- [x] Track equity, drawdown, position sizes
 
 ✅ **Test**
-- [ ] Validate final balance, total trades, drawdown from test logs
+- [x] Validate final balance, total trades, drawdown from test logs
 
 ---
 
 ## ⏳ Stage 5 – Strategy Optimization (Walk-Forward)
-- [ ] Define param grid per strategy
-- [ ] Run WFA loop:
+- [x] Define param grid per strategy
+- [x] Run WFA loop:
     - Train segment → optimize
     - Test segment → validate
-- [ ] Avoid parameter overfit
+- [x] Avoid parameter overfit
 
 ✅ **Test**
-- [ ] Save top 10 configs per run
-- [ ] Save full test history per param set
+- [x] Save top 10 configs per run
+- [ ] Save full test history per param set (will implement later)
 
 ---
 
 ## ⏳ Stage 6 – Exporting Results
-- [ ] Save:
-    - [ ] All trades to CSV
-    - [ ] Summary file with metrics per run
-    - [ ] Top-N file with best configs
-- [ ] Optional JSON for import into other tools
+- [x] Save:
+    - [x] All trades to CSV
+    - [x] Summary file with metrics per run
+    - [x] Top-N file with best configs
+- [x] Optional JSON for import into other tools
 
 ✅ **Test**
-- [ ] Open results in Excel and inspect summary
+- [x] Open results in Excel and inspect summary
 
 ---
 

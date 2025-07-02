@@ -2,6 +2,7 @@
 
 from engine.strategy_interface import BaseStrategy
 import itertools
+import pandas as pd
 
 class ExampleStrategy(BaseStrategy):
     # Param grid inside the strategy for optimizer use
@@ -19,7 +20,7 @@ class ExampleStrategy(BaseStrategy):
         self.trades = []
 
     def run(self):
-        self.trades.clear()
+        self.signals = []
         directions = ["LONG", "SHORT"]
         dir_idx = 0
 
@@ -29,27 +30,26 @@ class ExampleStrategy(BaseStrategy):
             direction = directions[dir_idx % 2]
             dir_idx += 1
 
-            pnl = (exit_["close"] - entry["close"]) if direction == "LONG" else (entry["close"] - exit_["close"])
-            fee = abs(pnl) * 0.0005  # Example 0.05% fee
-            slippage = abs(pnl) * 0.00025  # Example slippage
-            net_pnl = pnl - fee - slippage
-
-            self.trades.append({
+            # Entry signal
+            self.signals.append({
+                "timestamp": pd.to_datetime(entry["timestamp"]),
                 "symbol": self.symbol,
                 "direction": direction,
-                "entry_time": entry["timestamp"],
                 "entry_price": entry["close"],
-                "exit_time": exit_["timestamp"],
-                "exit_price": exit_["close"],
-                "pnl": pnl,
-                "fee": fee,
-                "slippage": slippage,
-                "net_pnl": net_pnl,
+                "take_profit": entry["close"] * (1.02 if direction == "LONG" else 0.98),
+                "stop_loss": entry["close"] * (0.98 if direction == "LONG" else 1.02),
             })
 
+            # Exit signal
+            self.signals.append({
+                "timestamp": pd.to_datetime(exit_["timestamp"]),
+                "symbol": self.symbol,
+                "exit": True,
+                "exit_price": exit_["close"],
+            })
 
     def get_results(self):
-        return self.trades
+        return self.signals  # ✅ Send signals to trade engine
 
     @classmethod
     def generate_param_combinations(cls):
